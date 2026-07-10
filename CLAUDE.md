@@ -27,6 +27,12 @@ Two halves:
 - The video-generation step must stay a swappable module taking a `model` parameter (NFR-4).
 - Facebook/Instagram posting, comment-reply agents, and FFmpeg-only mode are explicitly **out of scope** for phase 1 (BRD §2.2) — don't add them unprompted.
 
+## Git Workflow
+
+- **Never develop new features directly on `main`.** For any new feature/workflow/infrastructure change, create a branch first: `feature/<short-kebab-name>` (e.g., `feature/gd1b-video-pipeline`, `feature/zalo-approval`). Small fixes to docs/typos may go straight to `main`.
+- Merge back to `main` only when the feature is complete and validated (e.g., `docker compose config` passes for infra changes; workflow JSON imports cleanly for n8n changes).
+- Remote: `https://github.com/HoangLong-1210/n8n_project_v2.git`. Push the feature branch to origin so work is not lost between sessions.
+
 ## Commands
 
 Development happens on Windows; deployment targets the Ubuntu server (see `deploy/README.md` for the full 6-step deploy + acceptance checklist).
