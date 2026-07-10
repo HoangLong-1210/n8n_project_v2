@@ -1,0 +1,78 @@
+# =============================================================
+# n8n Self-hosted — Hạ tầng GĐ 1a (theo BRD v1.1)
+# Ubuntu server · Docker Compose · n8n + PostgreSQL
+# Reverse proxy: nginx + certbot cài trên host (xem nginx/n8n.conf)
+# =============================================================
+name: n8n   # cố định tên project → tên volume ổn định (backup.sh phụ thuộc)
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: n8n-postgres
+    restart: always                      # FR-0.3: tự khởi động lại
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - n8n-net
+    # FR-0.5: KHÔNG mở port ra ngoài — chỉ n8n truy cập được qua mạng nội bộ
+
+  n8n:
+    build: ./n8n                         # image custom kèm FFmpeg (FR-2.4)
+    container_name: n8n
+    restart: always                      # FR-0.3
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # --- Database (FR-0.1: PostgreSQL, không dùng SQLite) ---
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      # --- URL & webhook (FR-0.2: HTTPS qua Caddy) ---
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://${N8N_HOST}/
+      - WEBHOOK_URL=https://${N8N_HOST}/
+      - N8N_PROXY_HOPS=1                 # đứng sau 1 lớp reverse proxy
+      # --- Bảo mật (FR-0.5, NFR-3) ---
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_SECURE_COOKIE=true
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # --- Múi giờ (lịch đăng bài chạy đúng giờ VN) ---
+      - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
+      - TZ=Asia/Ho_Chi_Minh
+      # --- Vận hành (NFR-5: log/executions giữ 30 ngày) ---
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=720
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_DIAGNOSTICS_ENABLED=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./local-files:/files             # workspace FFmpeg: video/audio tạm
+    networks:
+      - n8n-net
+    ports:
+      # FR-0.5: chỉ bind localhost — internet phải đi qua nginx HTTPS trên host
+      - "127.0.0.1:5678:5678"
+
+volumes:
+  postgres_data:
+  n8n_data:
+
+networks:
+  n8n-net:
+    driver: bridge

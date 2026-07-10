@@ -1,0 +1,12 @@
+# Secrets — không bao giờ commit (NFR-3)
+.env
+deploy/.env
+
+# Sinh ra khi vận hành trên server
+deploy/backups/
+deploy/local-files/
+
+# Tạm/OS
+*.log
+Thumbs.db
+.DS_Store

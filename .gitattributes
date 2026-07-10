@@ -1,0 +1,8 @@
+# Chuẩn hóa line ending — file chạy trên server Ubuntu bắt buộc LF
+* text=auto
+*.sh text eol=lf
+*.conf text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf
+*.md text eol=lf
