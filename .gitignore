@@ -1,6 +1,7 @@
 # Secrets — không bao giờ commit (NFR-3)
 .env
 deploy/.env
+.mcp.json
 
 # Sinh ra khi vận hành trên server
 deploy/backups/
