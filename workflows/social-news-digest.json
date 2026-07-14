@@ -80,7 +80,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Khử trùng lặp + CÂN BẰNG NGUỒN: mỗi báo lấy tối đa 4 tin mới nhất\n// (nếu lấy \"10 tin mới nhất toàn cục\" thì báo đăng dày đặc sẽ chiếm hết digest)\nconst seen = new Set();\nconst articles = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const key = (a.link || a.title || '').trim();\n  if (!key || !a.title || seen.has(key)) continue; // bỏ item lỗi từ feed hỏng\n  seen.add(key);\n  let source = 'Khác';\n  try {\n    const h = new URL(a.link).hostname;\n    if (h.includes('vnexpress')) source = 'VnExpress';\n    else if (h.includes('tuoitre')) source = 'Tuổi Trẻ';\n    else if (h.includes('thanhnien')) source = 'Thanh Niên';\n  } catch (e) {}\n  const t = new Date(a.isoDate || a.pubDate || 0).getTime();\n  articles.push({\n    title: String(a.title).trim(),\n    snippet: String(a.contentSnippet || a.content || '')\n      .replace(/<[^>]*>/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .slice(0, 200),\n    link: a.link || '',\n    ts: isNaN(t) ? 0 : t,\n    source\n  });\n}\nconst bySource = {};\nfor (const a of articles) (bySource[a.source] = bySource[a.source] || []).push(a);\nconst top = [];\nfor (const list of Object.values(bySource)) {\n  list.sort((x, y) => y.ts - x.ts);\n  top.push(...list.slice(0, 4));\n}\ntop.sort((x, y) => y.ts - x.ts);\nif (top.length === 0) {\n  throw new Error('Không lấy được tin nào từ cả 3 nguồn RSS');\n}\nconst digest = top\n  .map((a, i) => `${i + 1}. [${a.source}] ${a.title}\\n${a.snippet}`)\n  .join('\\n\\n');\nreturn [{ json: { digest, articleCount: top.length, links: top.map(a => a.link).join('\\n') } }];"
+        "jsCode": "// Khử trùng lặp + CÂN BẰNG NGUỒN: mỗi báo lấy tối đa 4 tin mới nhất\n// (nếu lấy \"10 tin mới nhất toàn cục\" thì báo đăng dày đặc sẽ chiếm hết digest)\n// Lưu ý: sandbox task runner không có new URL — nhận diện nguồn bằng chuỗi link\nconst seen = new Set();\nconst articles = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const key = (a.link || a.title || '').trim();\n  if (!key || !a.title || seen.has(key)) continue; // bỏ item lỗi từ feed hỏng\n  seen.add(key);\n  const l = String(a.link || '');\n  let source = 'Khác';\n  if (l.indexOf('vnexpress') !== -1) source = 'VnExpress';\n  else if (l.indexOf('tuoitre') !== -1) source = 'Tuổi Trẻ';\n  else if (l.indexOf('thanhnien') !== -1) source = 'Thanh Niên';\n  const t = new Date(a.isoDate || a.pubDate || 0).getTime();\n  articles.push({\n    title: String(a.title).trim(),\n    snippet: String(a.contentSnippet || a.content || '')\n      .replace(/<[^>]*>/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .slice(0, 200),\n    link: l,\n    ts: isNaN(t) ? 0 : t,\n    source\n  });\n}\nconst bySource = {};\nfor (const a of articles) (bySource[a.source] = bySource[a.source] || []).push(a);\nconst top = [];\nfor (const list of Object.values(bySource)) {\n  list.sort((x, y) => y.ts - x.ts);\n  top.push(...list.slice(0, 4));\n}\ntop.sort((x, y) => y.ts - x.ts);\nif (top.length === 0) {\n  throw new Error('Không lấy được tin nào từ cả 3 nguồn RSS');\n}\n// đề phòng lỗi nhận diện nguồn khiến mọi tin dồn vào 1 nhóm\nconst sourceCount = Object.keys(bySource).length;\nconst digest = top\n  .map((a, i) => `${i + 1}. [${a.source}] ${a.title}\\n${a.snippet}`)\n  .join('\\n\\n');\nreturn [{ json: { digest, articleCount: top.length, sourceCount, links: top.map(a => a.link).join('\\n') } }];"
       },
       "id": "a1000000-0000-4000-8000-000000000006",
       "name": "Build Digest",
@@ -95,8 +95,8 @@
       "parameters": {
         "promptType": "define",
         "text": "=Bạn là chuyên gia viết content mạng xã hội tiếng Việt. Dưới đây là {{ $json.articleCount }} tin nóng nhất hôm nay ({{ $now.toFormat('dd/MM/yyyy') }}) tổng hợp từ VnExpress, Tuổi Trẻ, Thanh Niên:\n\n{{ $json.digest }}\n\nNhiệm vụ: viết MỘT bài đăng mạng xã hội (Facebook/Threads) dạng \"điểm tin nóng trong ngày\":\n- Mở đầu bằng 1 câu hook thu hút\n- Chọn 3-5 tin đáng chú ý nhất, mỗi tin 1-2 câu, mỗi tin một dòng bắt đầu bằng emoji phù hợp\n- Kết bài bằng 1 câu kêu gọi tương tác (hỏi ý kiến người đọc)\n- Cuối bài thêm 5-7 hashtag tiếng Việt liên quan\n- Tổng độ dài 150-250 từ, giọng gần gũi tự nhiên\n- Ưu tiên chọn tin từ nhiều nguồn khác nhau (nguồn ghi trong ngoặc vuông ở mỗi tin)\n- TUYỆT ĐỐI không bịa thêm thông tin ngoài các tin ở trên\n\nTrả về đúng 2 trường: content (nội dung bài đăng hoàn chỉnh) và category (chuyên mục nổi bật nhất của bài, chọn 1 trong: Thời sự, Kinh tế, Công nghệ, Thể thao, Giải trí, Đời sống, Thế giới, Tổng hợp — nếu bài trộn nhiều chủ đề thì chọn Tổng hợp).",
-        "batching": {},
-        "hasOutputParser": true
+        "hasOutputParser": true,
+        "batching": {}
       },
       "id": "a1000000-0000-4000-8000-000000000007",
       "name": "Write Social Post",
@@ -238,35 +238,35 @@
       ]
     },
     {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"content\": {\n      \"type\": \"string\",\n      \"description\": \"Nội dung bài đăng mạng xã hội hoàn chỉnh\"\n    },\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Thời sự\",\n        \"Kinh tế\",\n        \"Công nghệ\",\n        \"Thể thao\",\n        \"Giải trí\",\n        \"Đời sống\",\n        \"Thế giới\",\n        \"Tổng hợp\"\n      ],\n      \"description\": \"Chuyên mục nổi bật nhất của bài đăng\"\n    }\n  },\n  \"required\": [\n    \"content\",\n    \"category\"\n  ]\n}",
+        "autoFix": true
+      },
       "id": "a1000000-0000-4000-8000-00000000000b",
       "name": "Structured Output",
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
       "position": [
-        944,
-        528
-      ],
-      "parameters": {
-        "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"content\": {\n      \"type\": \"string\",\n      \"description\": \"Nội dung bài đăng mạng xã hội hoàn chỉnh\"\n    },\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Thời sự\",\n        \"Kinh tế\",\n        \"Công nghệ\",\n        \"Thể thao\",\n        \"Giải trí\",\n        \"Đời sống\",\n        \"Thế giới\",\n        \"Tổng hợp\"\n      ],\n      \"description\": \"Chuyên mục nổi bật nhất của bài đăng\"\n    }\n  },\n  \"required\": [\n    \"content\",\n    \"category\"\n  ]\n}",
-        "autoFix": true
-      }
+        1024,
+        496
+      ]
     },
     {
-      "id": "a1000000-0000-4000-8000-00000000000c",
-      "name": "Gemini Fixer",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1.1,
-      "position": [
-        1024,
-        704
-      ],
       "parameters": {
         "modelName": "models/gemini-2.5-flash-lite",
         "options": {
           "temperature": 0
         }
       },
+      "id": "a1000000-0000-4000-8000-00000000000c",
+      "name": "Gemini Fixer",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        640
+      ],
       "credentials": {
         "googlePalmApi": {
           "id": "2Sqv24iL9naiwwup",
