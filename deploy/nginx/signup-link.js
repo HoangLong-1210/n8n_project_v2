@@ -11,16 +11,26 @@
       return;
     }
     if (el) return;
-    var form = document.querySelector('form');
-    if (!form) return;
     var a = document.createElement('a');
     a.id = 'custom-signup-link';
     a.href = FORM_URL;
     a.textContent = 'Chưa có tài khoản? Đăng ký ngay';
-    a.style.cssText =
-      'display:block;text-align:center;margin-top:14px;font-weight:600;' +
-      'color:#ff6d5a;text-decoration:none;font-size:14px;';
-    form.appendChild(a);
+    // Gắn vào form đăng nhập nếu có; SPA của n8n có thể không dùng thẻ <form>
+    // nên luôn có phương án nút nổi cố định phía dưới card.
+    var form = document.querySelector('form');
+    if (form) {
+      a.style.cssText =
+        'display:block;text-align:center;margin-top:14px;font-weight:600;' +
+        'color:#ff6d5a;text-decoration:none;font-size:14px;';
+      form.appendChild(a);
+    } else if (document.body) {
+      a.style.cssText =
+        'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);' +
+        'font-weight:600;color:#ff6d5a;text-decoration:none;font-size:14px;' +
+        'background:#fff;border:1px solid #e0dce8;border-radius:20px;' +
+        'padding:9px 18px;box-shadow:0 2px 8px rgba(68,28,23,.08);z-index:99999;';
+      document.body.appendChild(a);
+    }
   }
   setInterval(tick, 400);
 })();
