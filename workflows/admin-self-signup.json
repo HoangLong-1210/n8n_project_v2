@@ -1,0 +1,188 @@
+{
+  "name": "[Admin] Self-Service Signup",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Đăng ký tài khoản n8n",
+        "formDescription": "Nhập email và mã mời được cấp. Sau khi gửi, bạn sẽ nhận link kích hoạt để tự đặt mật khẩu.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Mã mời",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Form Đăng Ký",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "c7f1a2b3-1111-4222-8333-944455556666"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json['Mã mời'] }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "moi-n8n-7429"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Đúng mã mời?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/api/v1/users",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [ { email: $('Form Đăng Ký').item.json.Email, role: 'global:member' } ] }}",
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Tạo User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        -96
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "UiLpnO6cy5w4X1qI",
+          "name": "n8n Admin API (self-signup)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Kết quả đăng ký",
+        "completionMessage": "={{ $json.user && $json.user.inviteAcceptUrl ? 'Tài khoản đã tạo cho ' + $json.user.email + '. MỞ LINK SAU để đặt mật khẩu và kích hoạt (copy lại ngay): ' + $json.user.inviteAcceptUrl : 'Không tạo được tài khoản (email có thể đã tồn tại). Chi tiết: ' + ($json.message || $json.error || 'không rõ') }}",
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000004",
+      "name": "Kết Quả",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -96
+      ],
+      "webhookId": "c7f1a2b3-1111-4222-8333-944455557777"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Mã mời không đúng",
+        "completionMessage": "Vui lòng liên hệ quản trị viên để nhận mã mời hợp lệ.",
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000005",
+      "name": "Sai Mã",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        448,
+        128
+      ],
+      "webhookId": "c7f1a2b3-1111-4222-8333-944455558888"
+    },
+    {
+      "parameters": {
+        "content": "## [Admin] Self-Service Signup\n\nCổng tự đăng ký tài khoản n8n (member):\nForm công khai → kiểm tra MÃ MỜI → gọi n8n API tạo user → hiện link kích hoạt để người dùng tự đặt mật khẩu.\n\n- URL form (khi Active): https://n8n.n8nagent.website/form/c7f1a2b3-1111-4222-8333-944455556666\n  (n8n bản này bỏ qua tham số path của Form Trigger nên URL dùng webhookId)\n- MÃ MỜI đặt trong node \"Đúng mã mời?\" — đổi định kỳ, chỉ đưa cho người tin cậy\n- Credential \"n8n Admin API (self-signup)\" chứa API key owner — key hết hạn ~11/08/2026, nhớ thay\n- Tài khoản tạo ra là global:member",
+        "height": 544,
+        "width": 676,
+        "color": 5
+      },
+      "id": "b2000000-0000-4000-8000-000000000006",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -288
+      ]
+    }
+  ],
+  "connections": {
+    "Form Đăng Ký": {
+      "main": [
+        [
+          {
+            "node": "Đúng mã mời?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Đúng mã mời?": {
+      "main": [
+        [
+          {
+            "node": "Tạo User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sai Mã",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tạo User": {
+      "main": [
+        [
+          {
+            "node": "Kết Quả",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
