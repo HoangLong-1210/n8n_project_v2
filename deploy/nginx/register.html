@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Đăng ký tài khoản n8n</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f4f6; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .card {
+      background: #fff; border: 1px solid #e0dce8; border-radius: 8px;
+      padding: 32px; width: 100%; max-width: 400px;
+      box-shadow: 0 2px 8px rgba(68, 28, 23, 0.06);
+    }
+    h1 { font-size: 22px; color: #441c17; margin-bottom: 6px; text-align: center; }
+    .sub { font-size: 13px; color: #7d7d87; text-align: center; margin-bottom: 24px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #555462; margin: 14px 0 6px; }
+    input {
+      width: 100%; padding: 10px 12px; font-size: 14px;
+      border: 1px solid #dbd9e0; border-radius: 6px; outline: none;
+    }
+    input:focus { border-color: #ff6d5a; box-shadow: 0 0 0 2px rgba(255, 109, 90, .15); }
+    .hint { font-size: 12px; color: #9b98a5; margin-top: 4px; }
+    button {
+      width: 100%; margin-top: 22px; padding: 11px; font-size: 15px; font-weight: 600;
+      color: #fff; background: #ff6d5a; border: none; border-radius: 6px; cursor: pointer;
+    }
+    button:hover { background: #f4593f; }
+    button:disabled { background: #ffb5aa; cursor: wait; }
+    .msg { margin-top: 14px; font-size: 13px; text-align: center; display: none; }
+    .msg.err { display: block; color: #d73a49; }
+    .msg.ok { display: block; color: #1e8a4c; }
+    .signin { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: #ff6d5a; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Tạo tài khoản n8n</h1>
+    <div class="sub">Điền thông tin để bắt đầu sử dụng</div>
+    <form id="f">
+      <label for="fullName">Họ tên</label>
+      <input id="fullName" type="text" required autocomplete="name" placeholder="Nguyễn Văn A" />
+      <label for="email">Email</label>
+      <input id="email" type="email" required autocomplete="email" placeholder="ban@email.com" />
+      <label for="password">Mật khẩu</label>
+      <input id="password" type="password" required autocomplete="new-password" minlength="8" maxlength="64" />
+      <div class="hint">Tối thiểu 8 ký tự, có ít nhất 1 chữ số và 1 chữ in hoa.</div>
+      <label for="password2">Nhập lại mật khẩu</label>
+      <input id="password2" type="password" required autocomplete="new-password" />
+      <button id="btn" type="submit">Đăng ký</button>
+      <div id="msg" class="msg"></div>
+    </form>
+    <a class="signin" href="/signin">Đã có tài khoản? Đăng nhập</a>
+  </div>
+  <script>
+    var f = document.getElementById('f');
+    var msg = document.getElementById('msg');
+    var btn = document.getElementById('btn');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      msg.className = 'msg';
+      var password = document.getElementById('password').value;
+      if (password !== document.getElementById('password2').value) {
+        msg.textContent = 'Mật khẩu nhập lại không khớp'; msg.className = 'msg err'; return;
+      }
+      if (!/[0-9]/.test(password) || !/[A-Z]/.test(password)) {
+        msg.textContent = 'Mật khẩu cần ít nhất 1 chữ số và 1 chữ in hoa'; msg.className = 'msg err'; return;
+      }
+      btn.disabled = true;
+      fetch('/custom-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          fullName: document.getElementById('fullName').value,
+          password: password
+        })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            msg.textContent = 'Đăng ký thành công! Đang chuyển đến trang đăng nhập...';
+            msg.className = 'msg ok';
+            setTimeout(function () { window.location.href = '/signin'; }, 1500);
+          } else {
+            msg.textContent = d.message || 'Đăng ký thất bại';
+            msg.className = 'msg err';
+            btn.disabled = false;
+          }
+        })
+        .catch(function () {
+          msg.textContent = 'Không kết nối được máy chủ, thử lại sau';
+          msg.className = 'msg err';
+          btn.disabled = false;
+        });
+    });
+  </script>
+</body>
+</html>

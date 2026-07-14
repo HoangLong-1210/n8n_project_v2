@@ -60,9 +60,12 @@ services:
       - EXECUTIONS_DATA_MAX_AGE=720
       - N8N_RUNNERS_ENABLED=true
       - N8N_DIAGNOSTICS_ENABLED=false
+      # --- Custom code: endpoint đăng ký tài khoản (xem n8n/hooks.js) ---
+      - EXTERNAL_HOOK_FILES=/n8n-custom/hooks.js
     volumes:
       - n8n_data:/home/node/.n8n
       - ./local-files:/files             # workspace FFmpeg: video/audio tạm
+      - ./n8n/hooks.js:/n8n-custom/hooks.js:ro   # custom signup endpoint
     networks:
       - n8n-net
     ports:
