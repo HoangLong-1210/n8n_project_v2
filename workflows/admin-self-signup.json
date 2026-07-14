@@ -2,67 +2,31 @@
   "name": "[Admin] Self-Service Signup",
   "nodes": [
     {
-      "parameters": {
-        "formTitle": "Đăng ký tài khoản n8n",
-        "formDescription": "Nhập email và mã mời được cấp. Sau khi gửi, bạn sẽ nhận link kích hoạt để tự đặt mật khẩu.",
-        "formFields": {
-          "values": [
-            {
-              "fieldLabel": "Email",
-              "fieldType": "email",
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Mã mời",
-              "requiredField": true
-            }
-          ]
-        },
-        "options": {}
-      },
       "id": "b2000000-0000-4000-8000-000000000001",
       "name": "Form Đăng Ký",
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
-      "position": [
-        0,
-        0
-      ],
-      "webhookId": "c7f1a2b3-1111-4222-8333-944455556666"
-    },
-    {
+      "position": [0, 0],
+      "webhookId": "c7f1a2b3-1111-4222-8333-944455556666",
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 1
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json['Mã mời'] }}",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              },
-              "rightValue": "moi-n8n-7429"
-            }
-          ],
-          "combinator": "and"
+        "formTitle": "Đăng ký tài khoản n8n",
+        "formDescription": "Điền thông tin bên dưới. Mật khẩu tối thiểu 8 ký tự, có ít nhất 1 số và 1 chữ in hoa. Đăng ký xong bạn sẽ được chuyển đến trang đăng nhập.",
+        "formFields": {
+          "values": [
+            { "fieldLabel": "Email", "fieldType": "email", "requiredField": true },
+            { "fieldLabel": "Họ tên", "requiredField": true },
+            { "fieldLabel": "Mật khẩu", "fieldType": "password", "requiredField": true }
+          ]
         },
         "options": {}
-      },
-      "id": "b2000000-0000-4000-8000-000000000002",
-      "name": "Đúng mã mời?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        224,
-        0
-      ]
+      }
     },
     {
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Tạo User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [224, 0],
       "parameters": {
         "method": "POST",
         "url": "http://localhost:5678/api/v1/users",
@@ -70,17 +34,9 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ [ { email: $('Form Đăng Ký').item.json.Email, role: 'global:member' } ] }}",
+        "jsonBody": "={{ [ { email: $json.Email, role: 'global:member' } ] }}",
         "options": {}
       },
-      "id": "b2000000-0000-4000-8000-000000000003",
-      "name": "Tạo User",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        448,
-        -96
-      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "UiLpnO6cy5w4X1qI",
@@ -90,99 +46,171 @@
       "onError": "continueRegularOutput"
     },
     {
+      "id": "b2000000-0000-4000-8000-000000000007",
+      "name": "Tạo OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [448, 0],
       "parameters": {
-        "operation": "completion",
-        "completionTitle": "Kết quả đăng ký",
-        "completionMessage": "={{ $json.user && $json.user.inviteAcceptUrl ? 'Tài khoản đã tạo cho ' + $json.user.email + '. MỞ LINK SAU để đặt mật khẩu và kích hoạt (copy lại ngay): ' + $json.user.inviteAcceptUrl : 'Không tạo được tài khoản (email có thể đã tồn tại). Chi tiết: ' + ($json.message || $json.error || 'không rõ') }}",
-        "options": {}
-      },
-      "id": "b2000000-0000-4000-8000-000000000004",
-      "name": "Kết Quả",
-      "type": "n8n-nodes-base.form",
-      "typeVersion": 1,
-      "position": [
-        672,
-        -96
-      ],
-      "webhookId": "c7f1a2b3-1111-4222-8333-944455557777"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.user ? $json.user.id : '' }}",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        }
+      }
     },
     {
+      "id": "b2000000-0000-4000-8000-000000000008",
+      "name": "Kích Hoạt Tài Khoản",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [672, -96],
       "parameters": {
-        "operation": "completion",
-        "completionTitle": "Mã mời không đúng",
-        "completionMessage": "Vui lòng liên hệ quản trị viên để nhận mã mời hợp lệ.",
+        "method": "POST",
+        "url": "http://localhost:5678/rest/invitations/accept",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { token: $json.user.inviteAcceptUrl.split('token=')[1], firstName: (($('Form Đăng Ký').item.json['Họ tên'] || '').trim().split(/\\s+/).slice(1).join(' ')) || ($('Form Đăng Ký').item.json['Họ tên'] || '').trim(), lastName: (($('Form Đăng Ký').item.json['Họ tên'] || '').trim().split(/\\s+/)[0]) || 'User', password: $('Form Đăng Ký').item.json['Mật khẩu'] } }}",
         "options": {}
       },
-      "id": "b2000000-0000-4000-8000-000000000005",
-      "name": "Sai Mã",
-      "type": "n8n-nodes-base.form",
-      "typeVersion": 1,
-      "position": [
-        448,
-        128
-      ],
-      "webhookId": "c7f1a2b3-1111-4222-8333-944455558888"
+      "onError": "continueRegularOutput"
     },
     {
+      "id": "b2000000-0000-4000-8000-000000000009",
+      "name": "Kích Hoạt OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [896, -96],
       "parameters": {
-        "content": "## [Admin] Self-Service Signup\n\nCổng tự đăng ký tài khoản n8n (member):\nForm công khai → kiểm tra MÃ MỜI → gọi n8n API tạo user → hiện link kích hoạt để người dùng tự đặt mật khẩu.\n\n- URL form (khi Active): https://n8n.n8nagent.website/form/c7f1a2b3-1111-4222-8333-944455556666\n  (n8n bản này bỏ qua tham số path của Form Trigger nên URL dùng webhookId)\n- MÃ MỜI đặt trong node \"Đúng mã mời?\" — đổi định kỳ, chỉ đưa cho người tin cậy\n- Credential \"n8n Admin API (self-signup)\" chứa API key owner — key hết hạn ~11/08/2026, nhớ thay\n- Tài khoản tạo ra là global:member",
-        "height": 544,
-        "width": 676,
-        "color": 5
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($json.data && $json.data.id) || $json.id || '' }}",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000a",
+      "name": "Về Trang Đăng Nhập",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [1120, -192],
+      "webhookId": "c7f1a2b3-1111-4222-8333-944455557777",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "redirect",
+        "redirectUrl": "https://n8n.n8nagent.website/signin",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000b",
+      "name": "Dọn User Hỏng",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, 0],
+      "parameters": {
+        "method": "DELETE",
+        "url": "=http://localhost:5678/api/v1/users/{{ $('Tạo User').item.json.user.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
       },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "UiLpnO6cy5w4X1qI",
+          "name": "n8n Admin API (self-signup)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000c",
+      "name": "Báo Lỗi Kích Hoạt",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [1344, 0],
+      "webhookId": "c7f1a2b3-1111-4222-8333-944455558888",
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Đăng ký chưa thành công",
+        "completionMessage": "Mật khẩu chưa đạt yêu cầu (tối thiểu 8 ký tự, có ít nhất 1 số và 1 chữ in hoa) hoặc có lỗi hệ thống. Hãy quay lại form và thử lại.",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000d",
+      "name": "Báo Lỗi Tạo",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [672, 128],
+      "webhookId": "c7f1a2b3-1111-4222-8333-944455559999",
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Đăng ký chưa thành công",
+        "completionMessage": "Không tạo được tài khoản — email này có thể đã được đăng ký. Nếu bạn quên mật khẩu, liên hệ quản trị viên.",
+        "options": {}
+      }
+    },
+    {
       "id": "b2000000-0000-4000-8000-000000000006",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [
-        -720,
-        -288
-      ]
+      "position": [-720, -288],
+      "parameters": {
+        "content": "## [Admin] Self-Service Signup (v2: kích hoạt ngay, không cần mã mời)\n\nForm công khai → tạo user (global:member) qua n8n API → kích hoạt luôn bằng mật khẩu người dùng nhập (POST /rest/invitations/{id}/accept) → redirect về trang đăng nhập.\n\n- URL form: https://n8n.n8nagent.website/form/c7f1a2b3-1111-4222-8333-944455556666\n- KHÔNG có mã mời: ai có URL đều đăng ký được — cân nhắc thêm lại lớp bảo vệ nếu cần\n- inviterId hardcode = id owner; credential \"n8n Admin API (self-signup)\" chứa API key owner — key hết hạn ~11/08/2026, nhớ thay\n- Kích hoạt lỗi (mật khẩu yếu) → tự xóa user pending để đăng ký lại được",
+        "color": 5,
+        "width": 680,
+        "height": 260
+      }
     }
   ],
   "connections": {
     "Form Đăng Ký": {
-      "main": [
-        [
-          {
-            "node": "Đúng mã mời?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Đúng mã mời?": {
-      "main": [
-        [
-          {
-            "node": "Tạo User",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Sai Mã",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Tạo User", "type": "main", "index": 0 }]]
     },
     "Tạo User": {
+      "main": [[{ "node": "Tạo OK?", "type": "main", "index": 0 }]]
+    },
+    "Tạo OK?": {
       "main": [
-        [
-          {
-            "node": "Kết Quả",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Kích Hoạt Tài Khoản", "type": "main", "index": 0 }],
+        [{ "node": "Báo Lỗi Tạo", "type": "main", "index": 0 }]
       ]
+    },
+    "Kích Hoạt Tài Khoản": {
+      "main": [[{ "node": "Kích Hoạt OK?", "type": "main", "index": 0 }]]
+    },
+    "Kích Hoạt OK?": {
+      "main": [
+        [{ "node": "Về Trang Đăng Nhập", "type": "main", "index": 0 }],
+        [{ "node": "Dọn User Hỏng", "type": "main", "index": 0 }]
+      ]
+    },
+    "Dọn User Hỏng": {
+      "main": [[{ "node": "Báo Lỗi Kích Hoạt", "type": "main", "index": 0 }]]
     }
   },
-  "settings": {
-    "executionOrder": "v1"
-  }
+  "settings": { "executionOrder": "v1" }
 }
