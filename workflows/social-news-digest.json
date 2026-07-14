@@ -2,121 +2,157 @@
   "name": "[Social] Daily News Digest Post",
   "nodes": [
     {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
       "id": "a1000000-0000-4000-8000-000000000001",
       "name": "Schedule 7AM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 304],
-      "parameters": {
-        "rule": {
-          "interval": [
-            { "field": "days", "triggerAtHour": 7, "triggerAtMinute": 0 }
-          ]
-        }
-      }
+      "position": [
+        0,
+        304
+      ]
     },
     {
-      "id": "a1000000-0000-4000-8000-000000000002",
-      "name": "RSS VnExpress",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [224, 96],
       "parameters": {
         "url": "https://vnexpress.net/rss/tin-moi-nhat.rss",
         "options": {}
       },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "RSS VnExpress",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        96
+      ],
       "onError": "continueRegularOutput"
     },
     {
+      "parameters": {
+        "url": "https://tuoitre.vn/home.rss",
+        "options": {}
+      },
       "id": "a1000000-0000-4000-8000-000000000003",
       "name": "RSS Tuoi Tre",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [224, 304],
-      "parameters": {
-        "url": "https://tuoitre.vn/rss/tin-moi-nhat.rss",
-        "options": {}
-      },
+      "position": [
+        224,
+        304
+      ],
       "onError": "continueRegularOutput"
     },
     {
-      "id": "a1000000-0000-4000-8000-000000000004",
-      "name": "RSS Thanh Nien",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1.1,
-      "position": [224, 512],
       "parameters": {
         "url": "https://thanhnien.vn/rss/home.rss",
         "options": {}
       },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "RSS Thanh Nien",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        512
+      ],
       "onError": "continueRegularOutput"
     },
     {
+      "parameters": {
+        "numberInputs": 3
+      },
       "id": "a1000000-0000-4000-8000-000000000005",
       "name": "Merge Feeds",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [448, 304],
-      "parameters": {
-        "mode": "append",
-        "numberInputs": 3
-      }
+      "position": [
+        448,
+        304
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// Khử trùng lặp + CÂN BẰNG NGUỒN: mỗi báo lấy tối đa 4 tin mới nhất\n// (nếu lấy \"10 tin mới nhất toàn cục\" thì báo đăng dày đặc sẽ chiếm hết digest)\nconst seen = new Set();\nconst articles = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const key = (a.link || a.title || '').trim();\n  if (!key || !a.title || seen.has(key)) continue; // bỏ item lỗi từ feed hỏng\n  seen.add(key);\n  let source = 'Khác';\n  try {\n    const h = new URL(a.link).hostname;\n    if (h.includes('vnexpress')) source = 'VnExpress';\n    else if (h.includes('tuoitre')) source = 'Tuổi Trẻ';\n    else if (h.includes('thanhnien')) source = 'Thanh Niên';\n  } catch (e) {}\n  const t = new Date(a.isoDate || a.pubDate || 0).getTime();\n  articles.push({\n    title: String(a.title).trim(),\n    snippet: String(a.contentSnippet || a.content || '')\n      .replace(/<[^>]*>/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .slice(0, 200),\n    link: a.link || '',\n    ts: isNaN(t) ? 0 : t,\n    source\n  });\n}\nconst bySource = {};\nfor (const a of articles) (bySource[a.source] = bySource[a.source] || []).push(a);\nconst top = [];\nfor (const list of Object.values(bySource)) {\n  list.sort((x, y) => y.ts - x.ts);\n  top.push(...list.slice(0, 4));\n}\ntop.sort((x, y) => y.ts - x.ts);\nif (top.length === 0) {\n  throw new Error('Không lấy được tin nào từ cả 3 nguồn RSS');\n}\nconst digest = top\n  .map((a, i) => `${i + 1}. [${a.source}] ${a.title}\\n${a.snippet}`)\n  .join('\\n\\n');\nreturn [{ json: { digest, articleCount: top.length, links: top.map(a => a.link).join('\\n') } }];"
+      },
       "id": "a1000000-0000-4000-8000-000000000006",
       "name": "Build Digest",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [672, 304],
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Khử trùng lặp, sắp xếp theo thời gian, lấy 10 tin mới nhất rồi ghép thành digest\nconst seen = new Set();\nconst articles = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const key = (a.link || a.title || '').trim();\n  if (!key || !a.title || seen.has(key)) continue; // bỏ item lỗi từ feed hỏng\n  seen.add(key);\n  articles.push({\n    title: String(a.title).trim(),\n    snippet: String(a.contentSnippet || a.content || '')\n      .replace(/<[^>]*>/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .slice(0, 200),\n    link: a.link || '',\n    date: a.isoDate || a.pubDate || ''\n  });\n}\narticles.sort((x, y) => new Date(y.date) - new Date(x.date));\nconst top = articles.slice(0, 10);\nif (top.length === 0) {\n  throw new Error('Không lấy được tin nào từ cả 3 nguồn RSS');\n}\nconst digest = top\n  .map((a, i) => `${i + 1}. ${a.title}\\n${a.snippet}`)\n  .join('\\n\\n');\nreturn [{ json: { digest, articleCount: top.length, links: top.map(a => a.link).join('\\n') } }];"
-      }
+      "position": [
+        672,
+        304
+      ]
     },
     {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bạn là chuyên gia viết content mạng xã hội tiếng Việt. Dưới đây là {{ $json.articleCount }} tin nóng nhất hôm nay ({{ $now.toFormat('dd/MM/yyyy') }}) tổng hợp từ VnExpress, Tuổi Trẻ, Thanh Niên:\n\n{{ $json.digest }}\n\nNhiệm vụ: viết MỘT bài đăng mạng xã hội (Facebook/Threads) dạng \"điểm tin nóng trong ngày\":\n- Mở đầu bằng 1 câu hook thu hút\n- Chọn 3-5 tin đáng chú ý nhất, mỗi tin 1-2 câu, mỗi tin một dòng bắt đầu bằng emoji phù hợp\n- Kết bài bằng 1 câu kêu gọi tương tác (hỏi ý kiến người đọc)\n- Cuối bài thêm 5-7 hashtag tiếng Việt liên quan\n- Tổng độ dài 150-250 từ, giọng gần gũi tự nhiên\n- Ưu tiên chọn tin từ nhiều nguồn khác nhau (nguồn ghi trong ngoặc vuông ở mỗi tin)\n- TUYỆT ĐỐI không bịa thêm thông tin ngoài các tin ở trên\n\nTrả về đúng 2 trường: content (nội dung bài đăng hoàn chỉnh) và category (chuyên mục nổi bật nhất của bài, chọn 1 trong: Thời sự, Kinh tế, Công nghệ, Thể thao, Giải trí, Đời sống, Thế giới, Tổng hợp — nếu bài trộn nhiều chủ đề thì chọn Tổng hợp).",
+        "batching": {},
+        "hasOutputParser": true
+      },
       "id": "a1000000-0000-4000-8000-000000000007",
       "name": "Write Social Post",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
-      "position": [896, 304],
-      "parameters": {
-        "promptType": "define",
-        "text": "=Bạn là chuyên gia viết content mạng xã hội tiếng Việt. Dưới đây là {{ $json.articleCount }} tin nóng nhất hôm nay ({{ $now.toFormat('dd/MM/yyyy') }}) tổng hợp từ VnExpress, Tuổi Trẻ, Thanh Niên:\n\n{{ $json.digest }}\n\nNhiệm vụ: viết MỘT bài đăng mạng xã hội (Facebook/Threads) dạng \"điểm tin nóng trong ngày\":\n- Mở đầu bằng 1 câu hook thu hút\n- Chọn 3-5 tin đáng chú ý nhất, mỗi tin 1-2 câu, mỗi tin một dòng bắt đầu bằng emoji phù hợp\n- Kết bài bằng 1 câu kêu gọi tương tác (hỏi ý kiến người đọc)\n- Cuối bài thêm 5-7 hashtag tiếng Việt liên quan\n- Tổng độ dài 150-250 từ, giọng gần gũi tự nhiên\n- TUYỆT ĐỐI không bịa thêm thông tin ngoài các tin ở trên\n\nChỉ trả về nội dung bài đăng hoàn chỉnh, không giải thích gì thêm."
-      }
+      "position": [
+        896,
+        304
+      ]
     },
     {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {
+          "maxOutputTokens": 1024,
+          "temperature": 0.7
+        }
+      },
       "id": "a1000000-0000-4000-8000-000000000008",
       "name": "Gemini Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.1,
-      "position": [976, 528],
-      "parameters": {
-        "modelName": "models/gemini-2.5-flash",
-        "options": { "temperature": 0.7, "maxOutputTokens": 1024 }
+      "position": [
+        752,
+        528
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2Sqv24iL9naiwwup",
+          "name": "Google Gemini(PaLM) Api account"
+        }
       }
     },
     {
-      "id": "a1000000-0000-4000-8000-000000000009",
-      "name": "Save Draft to Sheet",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.7,
-      "position": [1120, 304],
       "parameters": {
-        "resource": "sheet",
         "operation": "append",
-        "authentication": "oAuth2",
         "documentId": {
           "__rl": true,
-          "mode": "id",
-          "value": "",
-          "cachedResultName": "TODO: chọn spreadsheet Content MXH"
+          "value": "1vBbWgGRNibNrC3eXwzsLlFGJFkGkIjbw_jNnMOHzGhA",
+          "mode": "list",
+          "cachedResultName": "News-content",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vBbWgGRNibNrC3eXwzsLlFGJFkGkIjbw_jNnMOHzGhA/edit?usp=drivesdk"
         },
-        "sheetName": { "__rl": true, "mode": "name", "value": "Drafts" },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Drafts",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vBbWgGRNibNrC3eXwzsLlFGJFkGkIjbw_jNnMOHzGhA/edit#gid=0"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
             "date": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
-            "content": "={{ $json.text }}",
+            "category": "={{ $json.output.category }}",
+            "content": "={{ $json.output.content }}",
             "source_links": "={{ $('Build Digest').item.json.links }}",
             "status": "draft"
           },
@@ -124,6 +160,15 @@
             {
               "id": "date",
               "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -158,20 +203,75 @@
               "canBeUsedToMatch": false
             }
           ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "Save Draft to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1280,
+        304
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "OTVOlyi4fmG6D77j",
+          "name": "Google Sheets account"
         }
       }
     },
     {
+      "parameters": {
+        "content": "## [Social] Daily News Digest Post\n\nTổng hợp tin từ 3 báo (RSS) → Gemini viết bài đăng MXH → lưu nháp vào Google Sheet. Chạy 7h sáng hàng ngày (giờ VN theo GENERIC_TIMEZONE).\n\nSETUP:\n1. Tạo Google Sheet, tab \"Drafts\", hàng tiêu đề: date | category | content | source_links | status\n2. Credentials cần gắn: Google Gemini API (key từ aistudio.google.com) vào node Gemini Model + Gemini Fixer; Google Sheets OAuth2 vào node Save Draft to Sheet\n3. Điền spreadsheet ở node có \"TODO\"\n4. Test bằng nút Execute workflow trước, xem bài nháp trong Sheet rồi mới Activate\n\nMột nguồn RSS chết không làm hỏng cả run (onError: continue). Bài viết ở trạng thái draft — bạn duyệt rồi tự đăng.",
+        "height": 628,
+        "width": 340,
+        "color": 4
+      },
       "id": "a1000000-0000-4000-8000-00000000000a",
       "name": "Sticky Setup",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-64, -160],
+      "position": [
+        -240,
+        -384
+      ]
+    },
+    {
+      "id": "a1000000-0000-4000-8000-00000000000b",
+      "name": "Structured Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        944,
+        528
+      ],
       "parameters": {
-        "content": "## [Social] Daily News Digest Post\n\nTổng hợp tin từ 3 báo (RSS) → Gemini viết bài đăng MXH → lưu nháp vào Google Sheet. Chạy 7h sáng hàng ngày (giờ VN theo GENERIC_TIMEZONE).\n\nSETUP:\n1. Tạo Google Sheet, tab \"Drafts\", hàng tiêu đề: date | content | source_links | status\n2. Credentials cần gắn: Google Gemini API (key từ aistudio.google.com) vào node Gemini Model; Google Sheets OAuth2 vào node Save Draft to Sheet\n3. Điền spreadsheet ở node có \"TODO\"\n4. Test bằng nút Execute workflow trước, xem bài nháp trong Sheet rồi mới Activate\n\nMột nguồn RSS chết không làm hỏng cả run (onError: continue). Bài viết ở trạng thái draft — bạn duyệt rồi tự đăng.",
-        "color": 4,
-        "width": 340,
-        "height": 260
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"content\": {\n      \"type\": \"string\",\n      \"description\": \"Nội dung bài đăng mạng xã hội hoàn chỉnh\"\n    },\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Thời sự\",\n        \"Kinh tế\",\n        \"Công nghệ\",\n        \"Thể thao\",\n        \"Giải trí\",\n        \"Đời sống\",\n        \"Thế giới\",\n        \"Tổng hợp\"\n      ],\n      \"description\": \"Chuyên mục nổi bật nhất của bài đăng\"\n    }\n  },\n  \"required\": [\n    \"content\",\n    \"category\"\n  ]\n}",
+        "autoFix": true
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-00000000000c",
+      "name": "Gemini Fixer",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        704
+      ],
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2Sqv24iL9naiwwup",
+          "name": "Google Gemini(PaLM) Api account"
+        }
       }
     }
   ],
@@ -179,35 +279,125 @@
     "Schedule 7AM": {
       "main": [
         [
-          { "node": "RSS VnExpress", "type": "main", "index": 0 },
-          { "node": "RSS Tuoi Tre", "type": "main", "index": 0 },
-          { "node": "RSS Thanh Nien", "type": "main", "index": 0 }
+          {
+            "node": "RSS VnExpress",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Tuoi Tre",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Thanh Nien",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "RSS VnExpress": {
-      "main": [[{ "node": "Merge Feeds", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "RSS Tuoi Tre": {
-      "main": [[{ "node": "Merge Feeds", "type": "main", "index": 1 }]]
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "RSS Thanh Nien": {
-      "main": [[{ "node": "Merge Feeds", "type": "main", "index": 2 }]]
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
     },
     "Merge Feeds": {
-      "main": [[{ "node": "Build Digest", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Digest": {
-      "main": [[{ "node": "Write Social Post", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Write Social Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Gemini Model": {
       "ai_languageModel": [
-        [{ "node": "Write Social Post", "type": "ai_languageModel", "index": 0 }]
+        [
+          {
+            "node": "Write Social Post",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
       ]
     },
     "Write Social Post": {
-      "main": [[{ "node": "Save Draft to Sheet", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Save Draft to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Write Social Post",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Fixer": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }
