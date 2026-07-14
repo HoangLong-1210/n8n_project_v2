@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bảng quản trị n8n</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #f5f4f6; --card: #fff; --border: #e6e3ec; --text: #2d2b38;
+      --muted: #7d7a88; --brand: #ff6d5a; --ok: #1e8a4c; --err: #d73a49;
+      --warn: #c58a00; --chip: #f0eef4;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 14px; }
+    header { background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
+    header h1 { font-size: 17px; }
+    header .who { margin-left: auto; color: var(--muted); font-size: 13px; }
+    header a.exit { color: var(--brand); text-decoration: none; font-weight: 600; font-size: 13px; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 24px 60px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tabs button { padding: 8px 16px; background: none; border: 1px solid var(--border);
+      border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .tabs button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 8px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+    .stat .n { font-size: 26px; font-weight: 700; }
+    .stat .l { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .stat .n.ok { color: var(--ok); } .stat .n.err { color: var(--err); }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .panel h2 { font-size: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .panel h2 button.refresh { margin-left: auto; font-size: 12px; padding: 5px 12px; border: 1px solid var(--border);
+      background: none; border-radius: 6px; cursor: pointer; color: var(--muted); font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 11px 18px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+    tr:last-child td { border-bottom: none; }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; background: var(--chip); color: var(--muted); }
+    .chip.owner { background: #ffe9e5; color: var(--brand); }
+    .chip.admin { background: #e7f0ff; color: #2764c9; }
+    .chip.on { background: #e3f5ea; color: var(--ok); }
+    .chip.off { background: var(--chip); color: var(--muted); }
+    .chip.success { background: #e3f5ea; color: var(--ok); }
+    .chip.error { background: #fce8ea; color: var(--err); }
+    .chip.waiting, .chip.running { background: #fff4d6; color: var(--warn); }
+    .chip.canceled { background: var(--chip); color: var(--muted); }
+    .btn { padding: 5px 11px; font-size: 12px; font-weight: 600; border: 1px solid var(--border);
+      background: #fff; border-radius: 6px; cursor: pointer; color: var(--text); margin-right: 5px; }
+    .btn:hover { border-color: var(--brand); color: var(--brand); }
+    .btn.danger:hover { border-color: var(--err); color: var(--err); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    a.link { color: var(--brand); text-decoration: none; font-weight: 600; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .center { text-align: center; padding: 40px; color: var(--muted); }
+    #gate { max-width: 420px; margin: 80px auto; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 32px; text-align: center; }
+    #gate h2 { font-size: 18px; margin-bottom: 8px; }
+    #gate p { color: var(--muted); margin-bottom: 18px; }
+    #gate a { display: inline-block; background: var(--brand); color: #fff; text-decoration: none;
+      padding: 9px 20px; border-radius: 6px; font-weight: 600; }
+    .hide { display: none; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #2d2b38; color: #fff; padding: 11px 20px; border-radius: 8px; font-size: 13px;
+      opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 999; max-width: 90%; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="gate" class="hide">
+    <h2>Cần quyền quản trị</h2>
+    <p id="gate-msg">Bạn cần đăng nhập bằng tài khoản owner hoặc admin để vào trang này.</p>
+    <a href="/signin">Đến trang đăng nhập</a>
+  </div>
+
+  <div id="app" class="hide">
+    <header>
+      <h1>⚙️ Quản trị n8n</h1>
+      <span class="who" id="who"></span>
+      <a class="exit" href="/">← Về n8n</a>
+    </header>
+    <div class="wrap">
+      <div class="tabs">
+        <button data-tab="overview" class="active">Tổng quan</button>
+        <button data-tab="users">Người dùng</button>
+        <button data-tab="workflows">Workflows</button>
+        <button data-tab="executions">Lần chạy</button>
+      </div>
+
+      <div id="tab-overview" class="tabview">
+        <div class="cards" id="stat-cards"><div class="center">Đang tải…</div></div>
+      </div>
+
+      <div id="tab-users" class="tabview hide">
+        <div class="panel">
+          <h2>Người dùng <button class="refresh" onclick="loadUsers()">Làm mới</button></h2>
+          <div id="users-body"><div class="center">Đang tải…</div></div>
+        </div>
+      </div>
+
+      <div id="tab-workflows" class="tabview hide">
+        <div class="panel">
+          <h2>Workflows <button class="refresh" onclick="loadWorkflows()">Làm mới</button></h2>
+          <div id="wf-body"><div class="center">Đang tải…</div></div>
+        </div>
+      </div>
+
+      <div id="tab-executions" class="tabview hide">
+        <div class="panel">
+          <h2>Lần chạy gần đây <button class="refresh" onclick="loadExecutions()">Làm mới</button></h2>
+          <div id="ex-body"><div class="center">Đang tải…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    var ME = null;
+
+    function api(path, opts) {
+      opts = opts || {};
+      opts.credentials = 'same-origin';
+      opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+      return fetch('/rest' + path, opts).then(function (r) {
+        if (r.status === 204) return {};
+        return r.json().then(function (j) {
+          if (!r.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
+          return j;
+        });
+      });
+    }
+    function toast(msg) {
+      var t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 2600);
+    }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function fmt(d) { if (!d) return '—'; var x = new Date(d);
+      return x.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+    function roleChip(role, isOwner) {
+      if (isOwner) return '<span class="chip owner">Chủ sở hữu</span>';
+      if (role === 'global:admin') return '<span class="chip admin">Admin</span>';
+      return '<span class="chip">Thành viên</span>';
+    }
+
+    // ---- Auth guard ----
+    api('/login').then(function (r) {
+      ME = r.data;
+      var isAdmin = ME.isOwner || ME.role === 'global:owner' || ME.role === 'global:admin';
+      if (!isAdmin) {
+        document.getElementById('gate-msg').textContent =
+          'Tài khoản ' + ME.email + ' không có quyền quản trị.';
+        return showGate();
+      }
+      document.getElementById('who').textContent = ME.email + ' · ' +
+        (ME.isOwner ? 'Chủ sở hữu' : 'Admin');
+      document.getElementById('app').classList.remove('hide');
+      loadOverview();
+    }).catch(function () { showGate(); });
+
+    function showGate() { document.getElementById('gate').classList.remove('hide'); }
+
+    // ---- Tabs ----
+    document.querySelectorAll('.tabs button').forEach(function (b) {
+      b.onclick = function () {
+        document.querySelectorAll('.tabs button').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        document.querySelectorAll('.tabview').forEach(function (v) { v.classList.add('hide'); });
+        document.getElementById('tab-' + b.dataset.tab).classList.remove('hide');
+        if (b.dataset.tab === 'users') loadUsers();
+        else if (b.dataset.tab === 'workflows') loadWorkflows();
+        else if (b.dataset.tab === 'executions') loadExecutions();
+      };
+    });
+
+    // ---- Overview ----
+    function loadOverview() {
+      Promise.all([
+        api('/workflows').catch(function () { return { data: [], count: 0 }; }),
+        api('/users').catch(function () { return { data: { count: 0 } }; }),
+        api('/executions?limit=100').catch(function () { return { data: { results: [] } }; })
+      ]).then(function (res) {
+        var wfs = res[0].data || [];
+        var active = wfs.filter(function (w) { return w.active; }).length;
+        var userCount = (res[1].data && res[1].data.count) || 0;
+        var ex = (res[2].data && res[2].data.results) || [];
+        var ok = ex.filter(function (e) { return e.status === 'success'; }).length;
+        var err = ex.filter(function (e) { return e.status === 'error'; }).length;
+        var cards = [
+          { n: wfs.length, l: 'Tổng workflow' },
+          { n: active, l: 'Đang bật', cls: 'ok' },
+          { n: userCount, l: 'Người dùng' },
+          { n: ok, l: 'Chạy thành công (100 gần nhất)', cls: 'ok' },
+          { n: err, l: 'Chạy lỗi (100 gần nhất)', cls: 'err' }
+        ];
+        document.getElementById('stat-cards').innerHTML = cards.map(function (c) {
+          return '<div class="stat"><div class="n ' + (c.cls || '') + '">' + c.n +
+            '</div><div class="l">' + c.l + '</div></div>';
+        }).join('');
+      });
+    }
+
+    // ---- Users ----
+    function loadUsers() {
+      api('/users').then(function (r) {
+        var items = (r.data && r.data.items) || [];
+        var rows = items.map(function (u) {
+          var name = ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || '—';
+          var canDelete = !u.isOwner && u.id !== ME.id;
+          var actions = '<button class="btn" onclick="resetPw(\'' + u.id + '\')">Link đặt lại MK</button>' +
+            (canDelete ? '<button class="btn danger" onclick="delUser(\'' + u.id + '\',\'' + esc(u.email) + '\')">Xóa</button>' : '');
+          return '<tr><td>' + esc(u.email) + (u.isPending ? ' <span class="muted">(chờ)</span>' : '') +
+            '</td><td>' + esc(name) + '</td><td>' + roleChip(u.role, u.isOwner) +
+            '</td><td class="muted">' + (u.lastActiveAt ? fmt(u.lastActiveAt) : '—') +
+            '</td><td style="text-align:right">' + actions + '</td></tr>';
+        }).join('');
+        document.getElementById('users-body').innerHTML =
+          '<table><thead><tr><th>Email</th><th>Tên</th><th>Vai trò</th><th>Hoạt động</th><th></th></tr></thead><tbody>' +
+          rows + '</tbody></table>';
+      }).catch(function (e) { document.getElementById('users-body').innerHTML = '<div class="center">Lỗi: ' + esc(e.message) + '</div>'; });
+    }
+    function resetPw(id) {
+      api('/users/' + id + '/password-reset-link').then(function (r) {
+        var link = r.data.link;
+        navigator.clipboard && navigator.clipboard.writeText(link);
+        prompt('Gửi link này cho người dùng để đặt lại mật khẩu (đã copy):', link);
+      }).catch(function (e) { toast('Lỗi: ' + e.message); });
+    }
+    function delUser(id, email) {
+      if (!confirm('Xóa tài khoản ' + email + '? Không thể hoàn tác.')) return;
+      api('/users/' + id, { method: 'DELETE' }).then(function () {
+        toast('Đã xóa ' + email); loadUsers();
+      }).catch(function (e) { toast('Lỗi: ' + e.message); });
+    }
+
+    // ---- Workflows ----
+    function loadWorkflows() {
+      api('/workflows').then(function (r) {
+        var wfs = r.data || [];
+        var rows = wfs.map(function (w) {
+          var toggle = w.isArchived
+            ? '<span class="muted">đã lưu trữ</span>'
+            : '<button class="btn" onclick="toggleWf(\'' + w.id + '\',' + w.active + ')">' +
+              (w.active ? 'Tắt' : 'Bật') + '</button>';
+          return '<tr><td><a class="link" href="/workflow/' + w.id + '" target="_blank">' + esc(w.name) + '</a></td>' +
+            '<td>' + (w.active ? '<span class="chip on">Đang bật</span>' : '<span class="chip off">Tắt</span>') + '</td>' +
+            '<td class="muted">' + fmt(w.updatedAt) + '</td>' +
+            '<td style="text-align:right">' + toggle + '</td></tr>';
+        }).join('');
+        document.getElementById('wf-body').innerHTML =
+          '<table><thead><tr><th>Tên</th><th>Trạng thái</th><th>Cập nhật</th><th></th></tr></thead><tbody>' +
+          rows + '</tbody></table>';
+      }).catch(function (e) { document.getElementById('wf-body').innerHTML = '<div class="center">Lỗi: ' + esc(e.message) + '</div>'; });
+    }
+    function toggleWf(id, isActive) {
+      var act = isActive ? 'deactivate' : 'activate';
+      api('/workflows/' + id + '/' + act, { method: 'POST' }).then(function () {
+        toast(isActive ? 'Đã tắt workflow' : 'Đã bật workflow'); loadWorkflows(); loadOverview();
+      }).catch(function (e) { toast('Lỗi: ' + e.message); });
+    }
+
+    // ---- Executions ----
+    function loadExecutions() {
+      api('/executions?limit=30').then(function (r) {
+        var ex = (r.data && r.data.results) || [];
+        if (!ex.length) { document.getElementById('ex-body').innerHTML = '<div class="center">Chưa có lần chạy nào.</div>'; return; }
+        var rows = ex.map(function (e) {
+          return '<tr><td class="muted">#' + e.id + '</td>' +
+            '<td>' + esc(e.workflowName || e.workflowId || '—') + '</td>' +
+            '<td><span class="chip ' + e.status + '">' + e.status + '</span></td>' +
+            '<td class="muted">' + (e.mode || '') + '</td>' +
+            '<td class="muted">' + fmt(e.startedAt || e.createdAt) + '</td></tr>';
+        }).join('');
+        document.getElementById('ex-body').innerHTML =
+          '<table><thead><tr><th>ID</th><th>Workflow</th><th>Kết quả</th><th>Kiểu</th><th>Thời gian</th></tr></thead><tbody>' +
+          rows + '</tbody></table>';
+      }).catch(function (e) { document.getElementById('ex-body').innerHTML = '<div class="center">Lỗi: ' + esc(e.message) + '</div>'; });
+    }
+  </script>
+</body>
+</html>
