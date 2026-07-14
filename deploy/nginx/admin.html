@@ -70,7 +70,8 @@
   <div id="gate" class="hide">
     <h2>Cần quyền quản trị</h2>
     <p id="gate-msg">Bạn cần đăng nhập bằng tài khoản owner hoặc admin để vào trang này.</p>
-    <a href="/signin">Đến trang đăng nhập</a>
+    <a href="/signin" id="gate-signin">Đến trang đăng nhập</a>
+    <a href="#" id="gate-logout" class="hide" style="background:#fff;color:var(--brand);border:1px solid var(--border);margin-left:8px">Đăng xuất tài khoản này</a>
   </div>
 
   <div id="app" class="hide">
@@ -151,17 +152,29 @@
       ME = r.data;
       var isAdmin = ME.isOwner || ME.role === 'global:owner' || ME.role === 'global:admin';
       if (!isAdmin) {
-        document.getElementById('gate-msg').textContent =
-          'Tài khoản ' + ME.email + ' không có quyền quản trị.';
+        document.getElementById('gate-msg').innerHTML =
+          'Bạn đang đăng nhập bằng <b>' + esc(ME.email) + '</b> (vai trò: thành viên) — ' +
+          'tài khoản này không có quyền quản trị.<br>Hãy đăng xuất rồi đăng nhập lại bằng tài khoản owner/admin.';
+        document.getElementById('gate-signin').classList.add('hide');
+        document.getElementById('gate-logout').classList.remove('hide');
         return showGate();
       }
       document.getElementById('who').textContent = ME.email + ' · ' +
         (ME.isOwner ? 'Chủ sở hữu' : 'Admin');
       document.getElementById('app').classList.remove('hide');
       loadOverview();
-    }).catch(function () { showGate(); });
+    }).catch(function () {
+      document.getElementById('gate-msg').textContent =
+        'Bạn chưa đăng nhập. Hãy đăng nhập bằng tài khoản owner hoặc admin để vào trang này.';
+      showGate();
+    });
 
     function showGate() { document.getElementById('gate').classList.remove('hide'); }
+    document.getElementById('gate-logout').onclick = function (e) {
+      e.preventDefault();
+      api('/logout', { method: 'POST' }).then(function () { window.location.href = '/signin'; })
+        .catch(function () { window.location.href = '/signin'; });
+    };
 
     // ---- Tabs ----
     document.querySelectorAll('.tabs button').forEach(function (b) {
